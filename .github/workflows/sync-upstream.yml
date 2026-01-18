@@ -1,0 +1,130 @@
+name: Sync Upstream and Build
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if no changes'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.sync.outputs.has_changes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/hotovo/aider-desk.git || true
+          git fetch upstream main
+
+      - name: Check for upstream changes
+        id: check
+        run: |
+          UPSTREAM_SHA=$(git rev-parse upstream/main)
+          MERGE_BASE=$(git merge-base HEAD upstream/main)
+          if [ "$UPSTREAM_SHA" != "$MERGE_BASE" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Upstream has new changes"
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No upstream changes"
+          fi
+
+      - name: Merge upstream changes
+        id: sync
+        if: steps.check.outputs.has_changes == 'true' || github.event.inputs.force_build == 'true'
+        run: |
+          # Try to merge upstream
+          if git merge upstream/main --no-edit -m "Sync with upstream aider-desk"; then
+            echo "Merge successful"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "Merge conflict detected, attempting to resolve..."
+            # Accept our changes for branding files
+            git checkout --ours package.json electron-builder.yml
+            git checkout --ours build/icon.png build/icon.icns build/icon.ico
+            git checkout --ours resources/icon.png
+            git checkout --ours src/renderer/favicon.ico
+            git checkout --ours docs-site/static/img/icon.png docs-site/static/img/favicon.ico
+            git add -A
+            git commit -m "Sync with upstream aider-desk (resolved conflicts, kept Reactor branding)"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Re-apply Reactor branding
+        if: steps.sync.outputs.has_changes == 'true'
+        run: |
+          # Ensure branding is correct in package.json
+          if grep -q '"name": "aider-desk"' package.json; then
+            sed -i 's/"name": "aider-desk"/"name": "reactor"/g' package.json
+            sed -i 's/"description": "Aider desktop application wrapper"/"description": "Reactor - AI-powered coding assistant desktop application"/g' package.json
+            sed -i 's/"author": "Hotovo"/"author": "DrOlu"/g' package.json
+            sed -i 's|"homepage": "https://aiderdesk.hotovo.com"|"homepage": "https://github.com/DrOlu/reactor"|g' package.json
+            sed -i 's|"url": "https://github.com/hotovo/aider-desk.git"|"url": "https://github.com/DrOlu/reactor.git"|g' package.json
+          fi
+          
+          # Ensure branding is correct in electron-builder.yml
+          if grep -q 'appId: com.hotovo.aider-desk' electron-builder.yml; then
+            sed -i 's/appId: com.hotovo.aider-desk/appId: com.drolu.reactor/g' electron-builder.yml
+            sed -i 's/productName: aider-desk/productName: Reactor/g' electron-builder.yml
+            sed -i 's/executableName: aider-desk/executableName: reactor/g' electron-builder.yml
+            sed -i 's/maintainer: Hotovo/maintainer: DrOlu/g' electron-builder.yml
+          fi
+          
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No branding changes needed"
+          else
+            git commit -m "Re-apply Reactor branding after upstream sync"
+          fi
+
+      - name: Push changes
+        if: steps.sync.outputs.has_changes == 'true'
+        run: |
+          git push origin main
+
+      - name: Trigger build workflow
+        if: steps.sync.outputs.has_changes == 'true' || github.event.inputs.force_build == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build.yml',
+              ref: 'main'
+            });
+
+  build-notification:
+    needs: sync
+    runs-on: ubuntu-latest
+    if: needs.sync.outputs.has_changes == 'true'
+    steps:
+      - name: Summary
+        run: |
+          echo "## Upstream Sync Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully synced with [hotovo/aider-desk](https://github.com/hotovo/aider-desk)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Build workflow has been triggered." >> $GITHUB_STEP_SUMMARY
