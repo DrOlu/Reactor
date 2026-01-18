@@ -79,17 +79,17 @@ jobs:
           if grep -q '"name": "aider-desk"' package.json; then
             sed -i 's/"name": "aider-desk"/"name": "reactor"/g' package.json
             sed -i 's/"description": "Aider desktop application wrapper"/"description": "Reactor - AI-powered coding assistant desktop application"/g' package.json
-            sed -i 's/"author": "Hotovo"/"author": "DrOlu"/g' package.json
+            sed -i 's/"author": "Hotovo"/"author": {"name": "Hyperspace", "email": "reactor@hyperspace.ng"}/g' package.json
             sed -i 's|"homepage": "https://aiderdesk.hotovo.com"|"homepage": "https://github.com/DrOlu/reactor"|g' package.json
             sed -i 's|"url": "https://github.com/hotovo/aider-desk.git"|"url": "https://github.com/DrOlu/reactor.git"|g' package.json
           fi
           
           # Ensure branding is correct in electron-builder.yml
           if grep -q 'appId: com.hotovo.aider-desk' electron-builder.yml; then
-            sed -i 's/appId: com.hotovo.aider-desk/appId: com.drolu.reactor/g' electron-builder.yml
+            sed -i 's/appId: com.hotovo.aider-desk/appId: ng.hyperspace.reactor/g' electron-builder.yml
             sed -i 's/productName: aider-desk/productName: Reactor/g' electron-builder.yml
             sed -i 's/executableName: aider-desk/executableName: reactor/g' electron-builder.yml
-            sed -i 's/maintainer: Hotovo/maintainer: DrOlu/g' electron-builder.yml
+            sed -i 's/maintainer: Hotovo/maintainer: Hyperspace <reactor@hyperspace.ng>/g' electron-builder.yml
           fi
           
           git add -A

@@ -1,4 +1,4 @@
-appId: com.drolu.reactor
+appId: ng.hyperspace.reactor
 productName: Reactor
 directories:
   buildResources: build
@@ -68,7 +68,7 @@ linux:
     - target: AppImage
     - target: deb
     - target: rpm
-  maintainer: DrOlu
+  maintainer: Hyperspace <reactor@hyperspace.ng>
   category: Utility
   extraResources:
     - from: ./resources/linux

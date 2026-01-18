@@ -1,9 +1,12 @@
 {
   "name": "reactor",
-  "version": "0.49.0-dev",
+  "version": "0.49.0",
   "description": "Reactor - AI-powered coding assistant desktop application",
   "main": "./out/main/index.js",
-  "author": "DrOlu",
+  "author": {
+    "name": "Hyperspace",
+    "email": "reactor@hyperspace.ng"
+  },
   "homepage": "https://github.com/DrOlu/reactor",
   "repository": {
     "type": "git",
